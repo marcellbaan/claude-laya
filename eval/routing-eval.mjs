@@ -1,6 +1,6 @@
 // Scores the labelled prompts against a running Laya server with the exact questions and
 // cut points laya-claude uses. Run: npm run eval (needs laya-serve on LAYA_URL).
-import { LAYA_URL, QUESTIONS, difficulty, tierFor } from "../src/score.mjs";
+import { buildRequest, difficulty, tierFor } from "../src/score.mjs";
 import { HOLDOUT, TRAIN } from "./cases.mjs";
 
 const TIERS = ["haiku", "sonnet", "opus"];
@@ -8,11 +8,8 @@ const latencies = [];
 
 async function score([want, prompt]) {
   const started = Date.now();
-  const res = await fetch(`${LAYA_URL}/v1/systemone`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ state: { request: prompt }, questions: QUESTIONS }),
-  });
+  const { url, init } = buildRequest(prompt);
+  const res = await fetch(url, init);
   if (!res.ok) throw new Error(`Laya HTTP ${res.status}: ${await res.text()}`);
   latencies.push(Date.now() - started);
   const d = difficulty((await res.json()).answers);

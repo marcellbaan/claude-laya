@@ -110,6 +110,7 @@ model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run e
 | `LAYA_DOWNGRADE_MAX_TOKENS` | `20000` | no downgrades above this conversation size |
 | `LAYA_URL` | `http://127.0.0.1:8765` | Laya server (only a local URL is auto-started) |
 | `LAYA_TIMEOUT_MS` | `2000` | per-turn scoring timeout |
+| `LAYA_CHECKPOINT` | `english` | Laya checkpoint for scoring (`multilingual` has a known bias on score questions) |
 | `LAYA_DEBUG` | off | log decisions (no prompt text) to `~/.laya-claude/debug.log` |
 | `LAYA_NO_STATUSLINE` | off | don't add the status line |
 | `LAYA_DEVICE`, `LAYA_THREADS` | auto | passed to `laya-serve` (e.g. `cpu`, `cuda`, `mps`) |
