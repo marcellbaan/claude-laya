@@ -84,8 +84,24 @@ On 18 held-out, hand-labelled coding prompts:
 | 12 | 4 | 2 | 0 |
 
 Expect about 2 in 3 turns on the right tier, with most misses erring toward the more capable
-model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run eval` (needs
-`laya-serve` running), and adjust `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
+model. With only 18 held-out cases, the 95% interval on that accuracy is roughly 44–84%, so
+treat it as a rough indication.
+
+### Evaluating and tuning
+
+The eval data lives in `eval/data/*.jsonl`, one case per line:
+`{"id", "prompt", "label": "haiku|sonnet|opus", "source", "license", "split": "train|holdout"}`.
+With `laya-serve` running:
+
+```bash
+npm run eval                                   # fit cut points on train, report holdout
+npm run eval -- --cuts configured              # report and gate the cut points that ship
+npm run eval -- --min-accuracy 0.6 --max-under-route 0.15 --json report.json
+```
+
+The report gives exact accuracy (with a Wilson 95% interval), over- and under-routing rates
+per source, a confusion matrix, and every under-routed case. Under-routing is the costly error.
+To tune for your own work, add cases and set `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
 
 ## Does it save money?
 
@@ -135,7 +151,7 @@ always-Opus cache behaviour from the observed token counts.
 
 ```bash
 npm test         # proxy and scorer tests against fake servers; no network or account needed
-npm run eval     # routing accuracy against a running laya-serve
+npm run eval     # routing accuracy against a running laya-serve (see Evaluating and tuning)
 ```
 
 Code layout:
