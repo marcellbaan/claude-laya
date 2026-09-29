@@ -103,6 +103,17 @@ The report gives exact accuracy (with a Wilson 95% interval), over- and under-ro
 per source, a confusion matrix, and every under-routed case. Under-routing is the costly error.
 To tune for your own work, add cases and set `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
 
+Tools for growing the data:
+
+- `python3 eval/build_chatlogs.py` extracts short coding requests from
+  [WildChat](https://huggingface.co/datasets/allenai/WildChat-1M) (ODC-BY 1.0, attribution
+  kept) into `eval/candidates/chatlogs.jsonl`. The rows are unlabelled: a person assigns the
+  tier and split before a case moves to `eval/data/`. LMSYS-Chat-1M isn't used because its
+  licence forbids redistribution.
+- `node eval/validate_synthetic.mjs --input prompts.jsonl` labels prompts with the cheapest
+  tier whose `claude -p` run passes a grading command in a fixture repo. It is a dry run by
+  default. `--execute` makes real, billed runs (up to three per prompt).
+
 ## Does it save money?
 
 With `LAYA_DEBUG=1`, each routed response's token usage is appended to
