@@ -31,7 +31,7 @@ export const QUESTIONS = {
   },
 };
 
-/** Cut points on the combined difficulty, fitted on eval/cases.mjs TRAIN. */
+/** Cut points on the combined difficulty, fitted on the train split of eval/data/handwritten.jsonl. */
 export const CUTS = {
   sonnet: Number(process.env.LAYA_SONNET_AT ?? 0.375),
   opus: Number(process.env.LAYA_OPUS_AT ?? 0.5),
