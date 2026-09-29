@@ -97,12 +97,15 @@ export async function decide(body, previous, score) {
   const override = prompt.match(OVERRIDE)?.[1]?.toLowerCase();
   if (override) return { tier: override, reason: "override" };
 
+  // A conversation this process has not seen (e.g. `--resume`) still has a prompt cache
+  // built on some model, so the downgrade guard assumes the fallback rather than skipping.
+  const current = previous ?? FALLBACK;
   const scored = await score(prompt);
-  if (!scored) return { tier: previous ?? FALLBACK, reason: "laya-unavailable" };
+  if (!scored) return { tier: current, reason: "laya-unavailable" };
   const rank = (t) => ORDER.indexOf(t);
   const tokens = JSON.stringify(body.messages).length / 4;
-  if (previous && rank(scored.tier) < rank(previous) && tokens > DOWNGRADE_MAX_TOKENS) {
-    return { ...scored, tier: previous, reason: "kept-cache" };
+  if (rank(scored.tier) < rank(current) && tokens > DOWNGRADE_MAX_TOKENS) {
+    return { ...scored, tier: current, reason: "kept-cache" };
   }
   return { ...scored, reason: "laya" };
 }

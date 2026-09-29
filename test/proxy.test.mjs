@@ -142,3 +142,18 @@ test("sanitizeSchema converts draft-04 boolean exclusive bounds", () => {
   sanitizeSchema(s);
   assert.deepEqual(s, { properties: { n: { exclusiveMinimum: 1 }, m: {} } });
 });
+
+test("a resumed large conversation (no remembered tier) is not downgraded", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const body = { model: SENTINEL, tools: TOOLS, messages: [user("x".repeat(100_000)), { role: "assistant", content: "ok" }, user("thanks")] };
+  const d = await decide(body, undefined, async () => ({ tier: "haiku", difficulty: 0.1, ms: 1 }));
+  assert.equal(d.tier, "opus");
+  assert.equal(d.reason, "kept-cache");
+});
+
+test("a small conversation with no remembered tier still follows Laya", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const d = await decide(turn("fix the typo"), undefined, async () => ({ tier: "haiku", difficulty: 0.1, ms: 1 }));
+  assert.equal(d.tier, "haiku");
+  assert.equal(d.reason, "laya");
+});
