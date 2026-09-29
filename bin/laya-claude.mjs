@@ -16,6 +16,7 @@ mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
 chmodSync(STATE_DIR, 0o700); // `mode` above only applies when the directory is created
 const STATUS_FILE = join(STATE_DIR, `status-${process.pid}.json`);
 const DEBUG_FILE = join(STATE_DIR, "debug.log");
+const USAGE_FILE = join(STATE_DIR, "usage.jsonl");
 
 const warn = (message) => process.stderr.write(`[laya] ${message}\n`);
 
@@ -72,6 +73,16 @@ function onDecision(decision) {
   }
 }
 
+/** Token usage per routed response, for eval/usage-report.mjs. No prompt text. */
+function onUsage(record) {
+  if (!process.env.LAYA_DEBUG) return;
+  try {
+    appendFileSync(USAGE_FILE, `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`, { mode: 0o600 });
+  } catch {
+    // Accounting is best-effort.
+  }
+}
+
 function readJSON(file) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
@@ -105,7 +116,7 @@ await ensureLaya();
 const USER_SETTINGS = join(homedir(), ".claude", "settings.json");
 const modelBefore = clearStaleSentinel(USER_SETTINGS);
 
-const proxy = await startProxy({ upstream: process.env.ANTHROPIC_BASE_URL, score, onDecision });
+const proxy = await startProxy({ upstream: process.env.ANTHROPIC_BASE_URL, score, onDecision, onUsage });
 const args = [...process.argv.slice(2), ...statusLineArgs()];
 const env = {
   ...process.env,

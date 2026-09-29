@@ -87,6 +87,21 @@ Expect about 2 in 3 turns on the right tier, with most misses erring toward the 
 model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run eval` (needs
 `laya-serve` running), and adjust `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
 
+## Does it save money?
+
+With `LAYA_DEBUG=1`, each routed response's token usage is appended to
+`~/.laya-claude/usage.jsonl`. It records the tier, model, reason, difficulty and token counts,
+but no prompt text. To compare the actual cost with running every turn on Opus:
+
+```bash
+cp eval/prices.example.json prices.json   # fill in current prices (USD per million tokens)
+node eval/usage-report.mjs                # --usage FILE, --prices FILE, --opus-model ID
+```
+
+No prices ship with the repo, and the report refuses to run until every field it needs is
+filled in. The counterfactual ignores quality differences between models, and it estimates
+always-Opus cache behaviour from the observed token counts.
+
 ## Privacy
 
 - **Headers**, including your Claude credentials, go only to `api.anthropic.com` (or to your
@@ -112,7 +127,7 @@ model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run e
 | `LAYA_URL` | `http://127.0.0.1:8765` | Laya server (only a local URL is auto-started) |
 | `LAYA_TIMEOUT_MS` | `2000` | per-turn scoring timeout |
 | `LAYA_CHECKPOINT` | `english` | Laya checkpoint for scoring (`multilingual` has a known bias on score questions) |
-| `LAYA_DEBUG` | off | log decisions (no prompt text) to `~/.laya-claude/debug.log` |
+| `LAYA_DEBUG` | off | log decisions to `~/.laya-claude/debug.log` and token usage to `usage.jsonl` (no prompt text) |
 | `LAYA_NO_STATUSLINE` | off | don't add the status line |
 | `LAYA_DEVICE`, `LAYA_THREADS` | auto | passed to `laya-serve` (e.g. `cpu`, `cuda`, `mps`) |
 
