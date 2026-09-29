@@ -24,7 +24,8 @@ const FALLBACK = "opus";
  */
 const DOWNGRADE_MAX_TOKENS = Number(process.env.LAYA_DOWNGRADE_MAX_TOKENS ?? 20000);
 
-const OVERRIDE = /\b(?:use|switch to|with|on)\s+(haiku|sonnet|opus)\b/i;
+/** Only at the start of a prompt, so "why did this run on haiku?" is not an override. */
+const OVERRIDE = /^\s*(?:use|switch to)\s+(haiku|sonnet|opus)\b/i;
 
 /**
  * Text of a new user turn, or null. Tool-loop continuations end in a tool_result and keep the
@@ -94,19 +95,21 @@ export function sanitizeSchema(node) {
 export async function decide(body, previous, score) {
   const prompt = newTurnPrompt(body);
   if (!prompt) return { tier: previous ?? FALLBACK, reason: previous ? "continuation" : "unknown" };
-  const override = prompt.match(OVERRIDE)?.[1]?.toLowerCase();
-  if (override) return { tier: override, reason: "override" };
-
   // A conversation this process has not seen (e.g. `--resume`) still has a prompt cache
   // built on some model, so the downgrade guard assumes the fallback rather than skipping.
   const current = previous ?? FALLBACK;
+  const tokens = JSON.stringify(body.messages).length / 4;
+  const wastesCache = (tier) => ORDER.indexOf(tier) < ORDER.indexOf(current) && tokens > DOWNGRADE_MAX_TOKENS;
+
+  // Upgrades always apply; picking a model in /model is how to force a big downgrade.
+  const override = prompt.match(OVERRIDE)?.[1]?.toLowerCase();
+  if (override) {
+    return wastesCache(override) ? { tier: current, reason: "override-kept-cache" } : { tier: override, reason: "override" };
+  }
+
   const scored = await score(prompt);
   if (!scored) return { tier: current, reason: "laya-unavailable" };
-  const rank = (t) => ORDER.indexOf(t);
-  const tokens = JSON.stringify(body.messages).length / 4;
-  if (rank(scored.tier) < rank(current) && tokens > DOWNGRADE_MAX_TOKENS) {
-    return { ...scored, tier: current, reason: "kept-cache" };
-  }
+  if (wastesCache(scored.tier)) return { ...scored, tier: current, reason: "kept-cache" };
   return { ...scored, reason: "laya" };
 }
 

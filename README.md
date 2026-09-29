@@ -43,7 +43,10 @@ While running:
 
 - **Routing is on by default.** The session starts on **Laya Router** in `/model`. Picking
   another model there turns routing off for that session.
-- **Force a tier** for one turn by writing `use haiku`, `use sonnet` or `use opus` in the prompt.
+- **Force a tier** for one turn by *starting* the prompt with `use haiku`, `use sonnet` or `use opus`
+  (`switch to …` also works). A mention later in the prompt is ignored. Upgrades always apply.
+  A forced downgrade is refused on a large conversation, to keep the prompt cache. To force one
+  anyway, pick the model in `/model`.
 - **The status line** shows the last decision, such as `⚡ haiku d=0.14 · my-repo`. It's added
   only if you don't already have a status line configured.
 
