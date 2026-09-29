@@ -1,9 +1,10 @@
 // Loopback proxy between Claude Code and the Anthropic API. Requests for the sentinel model
 // get a real model id chosen per turn; everything else passes through untouched. Auth headers
 // are forwarded as-is to the upstream only, and nothing about a prompt is written anywhere.
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import http from "node:http";
 import https from "node:https";
+import { tapUsage } from "./usage.mjs";
 
 /** Model id Claude Code sends when "Laya Router" is selected in /model. */
 export const SENTINEL = "laya-router";
@@ -24,7 +25,8 @@ const FALLBACK = "opus";
  */
 const DOWNGRADE_MAX_TOKENS = Number(process.env.LAYA_DOWNGRADE_MAX_TOKENS ?? 20000);
 
-const OVERRIDE = /\b(?:use|switch to|with|on)\s+(haiku|sonnet|opus)\b/i;
+/** Only at the start of a prompt, so "why did this run on haiku?" is not an override. */
+const OVERRIDE = /^\s*(?:use|switch to)\s+(haiku|sonnet|opus)\b/i;
 
 /**
  * Text of a new user turn, or null. Tool-loop continuations end in a tool_result and keep the
@@ -94,16 +96,21 @@ export function sanitizeSchema(node) {
 export async function decide(body, previous, score) {
   const prompt = newTurnPrompt(body);
   if (!prompt) return { tier: previous ?? FALLBACK, reason: previous ? "continuation" : "unknown" };
+  // A conversation this process has not seen (e.g. `--resume`) still has a prompt cache
+  // built on some model, so the downgrade guard assumes the fallback rather than skipping.
+  const current = previous ?? FALLBACK;
+  const tokens = JSON.stringify(body.messages).length / 4;
+  const wastesCache = (tier) => ORDER.indexOf(tier) < ORDER.indexOf(current) && tokens > DOWNGRADE_MAX_TOKENS;
+
+  // Upgrades always apply; picking a model in /model is how to force a big downgrade.
   const override = prompt.match(OVERRIDE)?.[1]?.toLowerCase();
-  if (override) return { tier: override, reason: "override" };
+  if (override) {
+    return wastesCache(override) ? { tier: current, reason: "override-kept-cache" } : { tier: override, reason: "override" };
+  }
 
   const scored = await score(prompt);
-  if (!scored) return { tier: previous ?? FALLBACK, reason: "laya-unavailable" };
-  const rank = (t) => ORDER.indexOf(t);
-  const tokens = JSON.stringify(body.messages).length / 4;
-  if (previous && rank(scored.tier) < rank(previous) && tokens > DOWNGRADE_MAX_TOKENS) {
-    return { ...scored, tier: previous, reason: "kept-cache" };
-  }
+  if (!scored) return { tier: current, reason: "laya-unavailable" };
+  if (wastesCache(scored.tier)) return { ...scored, tier: current, reason: "kept-cache" };
   return { ...scored, reason: "laya" };
 }
 
@@ -114,19 +121,23 @@ const HOP_BY_HOP = ["host", "connection", "content-length", "keep-alive", "trans
  * @param {string} opts.upstream  API base URL requests are forwarded to
  * @param {(prompt: string) => Promise<?object>} opts.score
  * @param {(decision: object) => void} [opts.onDecision]  receives tier/reason/difficulty only
+ * @param {(record: object) => void} [opts.onUsage]  token usage of each routed response
  */
-export function startProxy({ upstream = "https://api.anthropic.com", score, onDecision = () => {} }) {
+export function startProxy({ upstream = "https://api.anthropic.com", score, onDecision = () => {}, onUsage = () => {} }) {
   const base = new URL(upstream);
   const transport = base.protocol === "https:" ? https : http;
-  const tiers = new Map(); // conversation key -> last tier
+  // Conversation key -> { tier, id, turn, reason, difficulty }. `id` is random per process,
+  // so usage records carry nothing derived from prompt text.
+  const conversations = new Map();
 
   const server = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", (c) => chunks.push(c));
     req.on("end", async () => {
       let payload = Buffer.concat(chunks);
+      let routed = null;
       try {
-        payload = await rewrite(req, payload);
+        ({ payload, routed } = await rewrite(req, payload));
       } catch {
         // Not JSON we understand: forward exactly what Claude Code sent.
       }
@@ -137,6 +148,7 @@ export function startProxy({ upstream = "https://api.anthropic.com", score, onDe
       const path = base.pathname.replace(/\/$/, "") + req.url;
       const up = transport.request({ hostname: base.hostname, port: base.port, path, method: req.method, headers }, (upRes) => {
         res.writeHead(upRes.statusCode, upRes.headers);
+        if (routed) tapUsage(upRes, (usage) => onUsage({ ...routed, status: upRes.statusCode, usage }));
         upRes.pipe(res);
       });
       up.on("error", (err) => {
@@ -148,24 +160,42 @@ export function startProxy({ upstream = "https://api.anthropic.com", score, onDe
   });
 
   async function rewrite(req, payload) {
-    if (req.method !== "POST" || req.headers["content-encoding"] || !payload.length) return payload;
+    if (req.method !== "POST" || req.headers["content-encoding"] || !payload.length) return { payload, routed: null };
     const body = JSON.parse(payload);
     sanitizeSchema(body.tools?.map((t) => t.input_schema));
+    let routed = null;
     if (body.model === SENTINEL) {
       const key = conversationKey(body);
+      const known = conversations.get(key);
       // Only real turns are scored; token counting and the like reuse the conversation's tier.
       const isTurn = /^\/v1\/messages(\?|$)/.test(req.url);
       const decision = isTurn
-        ? await decide(body, tiers.get(key), score)
-        : { tier: tiers.get(key) ?? FALLBACK, reason: "auxiliary" };
+        ? await decide(body, known?.tier, score)
+        : { tier: known?.tier ?? FALLBACK, reason: "auxiliary" };
       if (isTurn) {
-        tiers.set(key, decision.tier);
-        if (tiers.size > 1000) tiers.delete(tiers.keys().next().value);
-        if (decision.reason !== "continuation") onDecision(decision);
+        const newTurn = decision.reason !== "continuation";
+        const state = {
+          ...(newTurn ? { reason: decision.reason, difficulty: decision.difficulty } : known),
+          tier: decision.tier,
+          id: known?.id ?? randomUUID(),
+          turn: (known?.turn ?? 0) + (newTurn ? 1 : 0),
+        };
+        conversations.delete(key); // re-insert so the size cap evicts the least recent
+        conversations.set(key, state);
+        if (conversations.size > 1000) conversations.delete(conversations.keys().next().value);
+        if (newTurn) onDecision(decision);
+        routed = {
+          conversation: state.id,
+          turn: state.turn,
+          tier: state.tier,
+          reason: state.reason,
+          ...(Number.isFinite(state.difficulty) && { difficulty: state.difficulty }),
+        };
       }
       applyTier(body, decision.tier);
+      if (routed) routed.model = body.model;
     }
-    return Buffer.from(JSON.stringify(body));
+    return { payload: Buffer.from(JSON.stringify(body)), routed };
   }
 
   return new Promise((resolve) => {

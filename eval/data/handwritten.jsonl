@@ -1,0 +1,42 @@
+{"id":"handwritten-001","prompt":"rename the variable `usr` to `user` in src/auth.ts","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-002","prompt":"what does git rebase --onto do?","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-003","prompt":"run the tests","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-004","prompt":"add a comment above parseConfig explaining what it returns","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-005","prompt":"fix the typo in the README heading","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-006","prompt":"show me the last 5 commits","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-007","prompt":"format this file with prettier","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-008","prompt":"what's the difference between let and const?","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-009","prompt":"write unit tests for the formatCurrency function in utils/money.ts","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-010","prompt":"add a --verbose flag to the CLI that prints each file as it is processed","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-011","prompt":"the login form doesn't show an error message when the password is wrong, fix it","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-012","prompt":"implement pagination for the /users endpoint using limit and offset query params","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-013","prompt":"convert this class component to a React function component with hooks","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-014","prompt":"add input validation to the signup handler: email format and password length >= 12","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-015","prompt":"write a GitHub Actions workflow that runs npm test on every pull request","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-016","prompt":"refactor the duplicated retry logic in api/client.ts into a helper","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-017","prompt":"we have an intermittent deadlock in the job scheduler under load, figure out why and fix it","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-018","prompt":"design a migration plan to move our monolith's billing module into a separate service without downtime","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-019","prompt":"audit the OAuth implementation for security vulnerabilities, especially token refresh and PKCE","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-020","prompt":"memory usage grows unbounded in production after a few days but we can't reproduce locally, investigate","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-021","prompt":"redesign the caching layer across all services so invalidation is consistent, it's causing stale reads everywhere","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-022","prompt":"migrate the whole codebase from Redux to Zustand while keeping every feature working","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-023","prompt":"our distributed lock sometimes lets two workers process the same message, find the race condition","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-024","prompt":"architect a plugin system for the editor with sandboxing, versioned APIs and hot reload","label":"opus","source":"handwritten","license":"Apache-2.0","split":"train"}
+{"id":"handwritten-025","prompt":"what port does the dev server use?","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-026","prompt":"delete the unused import on line 3","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-027","prompt":"bump the version in package.json to 2.1.0","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-028","prompt":"list all TODO comments in the repo","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-029","prompt":"explain what this regex matches: ^\\d{3}-\\d{4}$","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-030","prompt":"commit these changes with message 'fix lint'","label":"haiku","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-031","prompt":"add a dark mode toggle to the settings page that persists to localStorage","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-032","prompt":"write a script that converts all the CSV files in data/ to JSON","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-033","prompt":"the date picker shows the wrong month in the header, fix the off-by-one","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-034","prompt":"add rate limiting middleware to the express app, 100 requests per minute per IP","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-035","prompt":"write integration tests for the orders API covering create, update and cancel","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-036","prompt":"extract the email sending code into its own module and update the callers","label":"sonnet","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-037","prompt":"tests pass locally but fail randomly in CI about 10% of the time, find the root cause","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-038","prompt":"design the database schema and sharding strategy for multi-tenant analytics at 10TB scale","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-039","prompt":"review the payment flow for ways an attacker could get goods without paying","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-040","prompt":"rewrite the query planner to support joins across federated data sources","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-041","prompt":"p99 latency doubled after last week's deploy, nobody knows which change caused it, investigate","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}
+{"id":"handwritten-042","prompt":"port the rendering engine from WebGL to WebGPU across the whole codebase","label":"opus","source":"handwritten","license":"Apache-2.0","split":"holdout"}

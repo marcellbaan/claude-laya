@@ -1,0 +1,23 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No npm dependencies, so no install step.
+      - run: npm test
+      # `npm run eval` is not run here: it needs a laya-serve process with ~1.4 GB of model
+      # checkpoints, which is too heavy for a per-PR job. Run it locally before changing
+      # src/score.mjs, and use its --min-accuracy / --max-under-route gates.

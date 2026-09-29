@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LAYA_URL, score } from "../src/score.mjs";
 import { SENTINEL, startProxy } from "../src/proxy.mjs";
+import { clearStaleSentinel, restoreModel } from "../src/settings.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STATE_DIR = join(homedir(), ".laya-claude");
@@ -15,6 +16,7 @@ mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
 chmodSync(STATE_DIR, 0o700); // `mode` above only applies when the directory is created
 const STATUS_FILE = join(STATE_DIR, `status-${process.pid}.json`);
 const DEBUG_FILE = join(STATE_DIR, "debug.log");
+const USAGE_FILE = join(STATE_DIR, "usage.jsonl");
 
 const warn = (message) => process.stderr.write(`[laya] ${message}\n`);
 
@@ -71,6 +73,16 @@ function onDecision(decision) {
   }
 }
 
+/** Token usage per routed response, for eval/usage-report.mjs. No prompt text. */
+function onUsage(record) {
+  if (!process.env.LAYA_DEBUG) return;
+  try {
+    appendFileSync(USAGE_FILE, `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`, { mode: 0o600 });
+  } catch {
+    // Accounting is best-effort.
+  }
+}
+
 function readJSON(file) {
   try {
     return JSON.parse(readFileSync(file, "utf8"));
@@ -101,19 +113,10 @@ if (!claude) {
 
 await ensureLaya();
 
-// Picking "Laya Router" with Enter in /model saves it as the default, which would break plain
-// `claude`; put the previous value back on exit.
 const USER_SETTINGS = join(homedir(), ".claude", "settings.json");
-const modelBefore = readJSON(USER_SETTINGS)?.model;
-function restoreModel() {
-  const settings = readJSON(USER_SETTINGS);
-  if (settings?.model !== SENTINEL) return;
-  if (modelBefore === undefined) delete settings.model;
-  else settings.model = modelBefore;
-  writeFileSync(USER_SETTINGS, `${JSON.stringify(settings, null, 2)}\n`);
-}
+const modelBefore = clearStaleSentinel(USER_SETTINGS);
 
-const proxy = await startProxy({ upstream: process.env.ANTHROPIC_BASE_URL, score, onDecision });
+const proxy = await startProxy({ upstream: process.env.ANTHROPIC_BASE_URL, score, onDecision, onUsage });
 const args = [...process.argv.slice(2), ...statusLineArgs()];
 const env = {
   ...process.env,
@@ -131,7 +134,7 @@ const child = spawn(claude, args, { stdio: "inherit", env });
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => child.kill(signal));
 child.on("exit", (code, signal) => {
   proxy.close();
-  restoreModel();
+  restoreModel(USER_SETTINGS, modelBefore);
   rmSync(STATUS_FILE, { force: true });
   rmSync(join(STATE_DIR, `settings-${process.pid}.json`), { force: true });
   process.exit(signal ? 1 : (code ?? 0));

@@ -1,0 +1,24 @@
+{
+  "_comment": "USD per million tokens. Fill in current prices from Anthropic pricing for your plan; values are intentionally empty.",
+  "claude-haiku-4-5-20251001": {
+    "input": null,
+    "output": null,
+    "cache_write_5m": null,
+    "cache_write_1h": null,
+    "cache_read": null
+  },
+  "claude-sonnet-5-5": {
+    "input": null,
+    "output": null,
+    "cache_write_5m": null,
+    "cache_write_1h": null,
+    "cache_read": null
+  },
+  "claude-opus-5-5": {
+    "input": null,
+    "output": null,
+    "cache_write_5m": null,
+    "cache_write_1h": null,
+    "cache_read": null
+  }
+}

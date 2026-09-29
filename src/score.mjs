@@ -31,7 +31,7 @@ export const QUESTIONS = {
   },
 };
 
-/** Cut points on the combined difficulty, fitted on eval/cases.mjs TRAIN. */
+/** Cut points on the combined difficulty, fitted on the train split of eval/data/handwritten.jsonl. */
 export const CUTS = {
   sonnet: Number(process.env.LAYA_SONNET_AT ?? 0.375),
   opus: Number(process.env.LAYA_OPUS_AT ?? 0.5),
@@ -48,19 +48,35 @@ export function difficulty(answers) {
 
 export const tierFor = (d) => (d < CUTS.sonnet ? "haiku" : d < CUTS.opus ? "sonnet" : "opus");
 
-/** Asks Laya about one prompt. Returns null on any failure so routing never blocks a turn. */
-export async function score(prompt) {
-  const started = Date.now();
-  try {
-    const res = await fetch(`${LAYA_URL}/v1/systemone`, {
+/**
+ * The one place a Laya request is built, shared by the router and eval/routing-eval.mjs so
+ * the two cannot drift. The checkpoint is pinned: laya-multilingual rarely picks the first
+ * level of a `score` question (Laya README, issue #131), and two of our three are scores.
+ */
+export function buildRequest(prompt) {
+  return {
+    url: `${LAYA_URL}/v1/systemone`,
+    init: {
       method: "POST",
       headers: {
         "content-type": "application/json",
         ...(process.env.LAYA_API_KEY && { authorization: `Bearer ${process.env.LAYA_API_KEY}` }),
       },
-      body: JSON.stringify({ state: { request: prompt }, questions: QUESTIONS }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    });
+      body: JSON.stringify({
+        model: process.env.LAYA_CHECKPOINT ?? "english",
+        state: { request: prompt },
+        questions: QUESTIONS,
+      }),
+    },
+  };
+}
+
+/** Asks Laya about one prompt. Returns null on any failure so routing never blocks a turn. */
+export async function score(prompt) {
+  const started = Date.now();
+  try {
+    const { url, init } = buildRequest(prompt);
+    const res = await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
     if (!res.ok) return null;
     const d = difficulty((await res.json()).answers);
     return { tier: tierFor(d), difficulty: d, ms: Date.now() - started };

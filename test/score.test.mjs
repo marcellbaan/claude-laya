@@ -18,7 +18,7 @@ await new Promise((r) => server.listen(0, "127.0.0.1", r));
 process.env.LAYA_URL = `http://127.0.0.1:${server.address().port}`;
 after(() => server.close());
 
-const { difficulty, score, tierFor } = await import("../src/score.mjs");
+const { buildRequest, difficulty, score, tierFor } = await import("../src/score.mjs");
 
 const answers = (p, task, reasoning) => ({
   model_tier: { type: "choice", choice: "haiku", probabilities: p },
@@ -42,9 +42,30 @@ test("score sends only the prompt and returns the tier", async () => {
   const r = await score("find the race");
   assert.equal(r.tier, "opus");
   assert.deepEqual(lastBody.state, { request: "find the race" });
+  assert.equal(lastBody.model, "english");
 });
 
 test("score returns null when Laya errors", async () => {
   reply = null;
   assert.equal(await score("hi"), null);
+});
+
+test("buildRequest pins the english checkpoint unless LAYA_CHECKPOINT is set", () => {
+  assert.equal(JSON.parse(buildRequest("x").init.body).model, "english");
+  process.env.LAYA_CHECKPOINT = "multilingual";
+  try {
+    assert.equal(JSON.parse(buildRequest("x").init.body).model, "multilingual");
+  } finally {
+    delete process.env.LAYA_CHECKPOINT;
+  }
+});
+
+test("buildRequest sends LAYA_API_KEY as a bearer token", () => {
+  process.env.LAYA_API_KEY = "k";
+  try {
+    assert.equal(buildRequest("x").init.headers.authorization, "Bearer k");
+  } finally {
+    delete process.env.LAYA_API_KEY;
+  }
+  assert.equal(buildRequest("x").init.headers.authorization, undefined);
 });

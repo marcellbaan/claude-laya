@@ -95,9 +95,9 @@ test("a trailing system message (hook output) does not hide the user turn", asyn
   assert.deepEqual(scored, ["what is 2+2?"]);
 });
 
-test("'use opus' in the prompt overrides Laya", async () => {
+test("'use opus' at the start of the prompt overrides Laya", async () => {
   next = { tier: "haiku", difficulty: 0.2, ms: 30 };
-  const { got } = await send(turn("rename x, use opus"));
+  const { got } = await send(turn("use opus: rename x"));
   assert.equal(got.body.model, MODELS.opus);
   assert.equal(scored.length, 0);
 });
@@ -141,4 +141,41 @@ test("sanitizeSchema converts draft-04 boolean exclusive bounds", () => {
   const s = { properties: { n: { minimum: 1, exclusiveMinimum: true }, m: { exclusiveMaximum: false } } };
   sanitizeSchema(s);
   assert.deepEqual(s, { properties: { n: { exclusiveMinimum: 1 }, m: {} } });
+});
+
+test("a resumed large conversation (no remembered tier) is not downgraded", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const body = { model: SENTINEL, tools: TOOLS, messages: [user("x".repeat(100_000)), { role: "assistant", content: "ok" }, user("thanks")] };
+  const d = await decide(body, undefined, async () => ({ tier: "haiku", difficulty: 0.1, ms: 1 }));
+  assert.equal(d.tier, "opus");
+  assert.equal(d.reason, "kept-cache");
+});
+
+test("a small conversation with no remembered tier still follows Laya", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const d = await decide(turn("fix the typo"), undefined, async () => ({ tier: "haiku", difficulty: 0.1, ms: 1 }));
+  assert.equal(d.tier, "haiku");
+  assert.equal(d.reason, "laya");
+});
+
+test("overrides are anchored to the start of the prompt", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const laya = async () => ({ tier: "sonnet", difficulty: 0.4, ms: 1 });
+  for (const text of ["why did the job run on haiku?", "rename x, use opus", "we use sonnet in prod"]) {
+    assert.equal((await decide(turn(text), "sonnet", laya)).reason, "laya", text);
+  }
+  assert.equal((await decide(turn("  Switch to HAIKU and rename x"), "sonnet", laya)).tier, "haiku");
+});
+
+test("an override upgrade applies at any conversation size", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  const big = turn("x".repeat(100_000), { role: "assistant", content: "ok" }, user("use opus: now fix it"));
+  assert.deepEqual(await decide(big, "haiku", async () => null), { tier: "opus", reason: "override" });
+});
+
+test("an override downgrade applies when small and is refused when large", async () => {
+  const { decide } = await import("../src/proxy.mjs");
+  assert.deepEqual(await decide(turn("use haiku: rename x"), "opus", async () => null), { tier: "haiku", reason: "override" });
+  const big = turn("x".repeat(100_000), { role: "assistant", content: "ok" }, user("use haiku: rename x"));
+  assert.deepEqual(await decide(big, "opus", async () => null), { tier: "opus", reason: "override-kept-cache" });
 });

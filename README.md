@@ -43,7 +43,10 @@ While running:
 
 - **Routing is on by default.** The session starts on **Laya Router** in `/model`. Picking
   another model there turns routing off for that session.
-- **Force a tier** for one turn by writing `use haiku`, `use sonnet` or `use opus` in the prompt.
+- **Force a tier** for one turn by *starting* the prompt with `use haiku`, `use sonnet` or `use opus`
+  (`switch to …` also works). A mention later in the prompt is ignored. Upgrades always apply.
+  A forced downgrade is refused on a large conversation, to keep the prompt cache. To force one
+  anyway, pick the model in `/model`.
 - **The status line** shows the last decision, such as `⚡ haiku d=0.14 · my-repo`. It's added
   only if you don't already have a status line configured.
 
@@ -81,20 +84,64 @@ On 18 held-out, hand-labelled coding prompts:
 | 12 | 4 | 2 | 0 |
 
 Expect about 2 in 3 turns on the right tier, with most misses erring toward the more capable
-model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run eval` (needs
-`laya-serve` running), and adjust `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
+model. With only 18 held-out cases, the 95% interval on that accuracy is roughly 44–84%, so
+treat it as a rough indication.
+
+### Evaluating and tuning
+
+The eval data lives in `eval/data/*.jsonl`, one case per line:
+`{"id", "prompt", "label": "haiku|sonnet|opus", "source", "license", "split": "train|holdout"}`.
+With `laya-serve` running:
+
+```bash
+npm run eval                                   # fit cut points on train, report holdout
+npm run eval -- --cuts configured              # report and gate the cut points that ship
+npm run eval -- --min-accuracy 0.6 --max-under-route 0.15 --json report.json
+```
+
+The report gives exact accuracy (with a Wilson 95% interval), over- and under-routing rates
+per source, a confusion matrix, and every under-routed case. Under-routing is the costly error.
+To tune for your own work, add cases and set `LAYA_SONNET_AT` / `LAYA_OPUS_AT`.
+
+Tools for growing the data:
+
+- `python3 eval/build_chatlogs.py` extracts short coding requests from
+  [WildChat](https://huggingface.co/datasets/allenai/WildChat-1M) (ODC-BY 1.0, attribution
+  kept) into `eval/candidates/chatlogs.jsonl`. The rows are unlabelled: a person assigns the
+  tier and split before a case moves to `eval/data/`. LMSYS-Chat-1M isn't used because its
+  licence forbids redistribution.
+- `node eval/validate_synthetic.mjs --input prompts.jsonl` labels prompts with the cheapest
+  tier whose `claude -p` run passes a grading command in a fixture repo. It is a dry run by
+  default. `--execute` makes real, billed runs (up to three per prompt).
+
+## Does it save money?
+
+With `LAYA_DEBUG=1`, each routed response's token usage is appended to
+`~/.laya-claude/usage.jsonl`. It records the tier, model, reason, difficulty and token counts,
+but no prompt text. To compare the actual cost with running every turn on Opus:
+
+```bash
+cp eval/prices.example.json prices.json   # fill in current prices (USD per million tokens)
+node eval/usage-report.mjs                # --usage FILE, --prices FILE, --opus-model ID
+```
+
+No prices ship with the repo, and the report refuses to run until every field it needs is
+filled in. The counterfactual ignores quality differences between models, and it estimates
+always-Opus cache behaviour from the observed token counts.
 
 ## Privacy
 
 - **Headers**, including your Claude credentials, go only to `api.anthropic.com` (or to your
   `ANTHROPIC_BASE_URL`). They are never logged.
 - **Prompt text goes only to the local `laya-serve`** and is never written to disk. The status
-  file and debug log record just the tier, reason, difficulty and timing, in
-  `~/.laya-claude` (mode 700).
+  file, debug log and usage log record just the tier, reason, difficulty, timing and token
+  counts, in `~/.laya-claude` (mode 700). Conversations are identified by a random ID, not by a
+  hash of their content.
 - **`laya-serve` gets a minimal environment** (`PATH`, `HOME`, `TMPDIR`, locale, `HF_HOME`,
   `LAYA_*`), not your whole shell environment.
 - **Your default model is protected.** If you pick "Laya Router" as your default in `/model`,
-  it is reset on exit so plain `claude` keeps working.
+  it is reset on exit so plain `claude` keeps working. If `laya-claude` was killed before it
+  could clean up, the next start resets it.
 
 ## Configuration
 
@@ -107,7 +154,8 @@ model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run e
 | `LAYA_DOWNGRADE_MAX_TOKENS` | `20000` | no downgrades above this conversation size |
 | `LAYA_URL` | `http://127.0.0.1:8765` | Laya server (only a local URL is auto-started) |
 | `LAYA_TIMEOUT_MS` | `2000` | per-turn scoring timeout |
-| `LAYA_DEBUG` | off | log decisions (no prompt text) to `~/.laya-claude/debug.log` |
+| `LAYA_CHECKPOINT` | `english` | Laya checkpoint for scoring (`multilingual` has a known bias on score questions) |
+| `LAYA_DEBUG` | off | log decisions to `~/.laya-claude/debug.log` and token usage to `usage.jsonl` (no prompt text) |
 | `LAYA_NO_STATUSLINE` | off | don't add the status line |
 | `LAYA_DEVICE`, `LAYA_THREADS` | auto | passed to `laya-serve` (e.g. `cpu`, `cuda`, `mps`) |
 
@@ -115,15 +163,22 @@ model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run e
 
 ```bash
 npm test         # proxy and scorer tests against fake servers; no network or account needed
-npm run eval     # routing accuracy against a running laya-serve
+npm run eval     # routing accuracy against a running laya-serve (see Evaluating and tuning)
 ```
 
 Code layout:
 
-- `src/proxy.mjs`: the proxy
-- `src/score.mjs`: Laya questions and cut points
+- `src/proxy.mjs`: the proxy and the routing rules
+- `src/score.mjs`: Laya questions, cut points and request building
+- `src/usage.mjs`: reads token usage from responses as they stream past
+- `src/settings.mjs`: keeps your default model in `~/.claude/settings.json` valid
 - `bin/laya-claude.mjs`: the launcher
 - `bin/statusline.mjs`: the status line
+- `eval/`: eval data, the evaluator, the cost report and the dataset tools
 
 Tested on macOS with Claude Code 2.1.284 and Node 26. Claude Code's request format is not a
 public contract, so a future version may need small proxy changes.
+
+## Licence
+
+Apache License 2.0, the same licence as Laya. See [LICENSE](LICENSE).
