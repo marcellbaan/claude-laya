@@ -127,3 +127,7 @@ Code layout:
 
 Tested on macOS with Claude Code 2.1.284 and Node 26. Claude Code's request format is not a
 public contract, so a future version may need small proxy changes.
+
+## Licence
+
+Apache License 2.0, the same licence as Laya. See [LICENSE](LICENSE).
