@@ -1,0 +1,17 @@
+{
+  "name": "claude-laya",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Route each Claude Code turn to the cheapest sufficient model, scored locally by Laya",
+  "type": "module",
+  "bin": {
+    "laya-claude": "bin/laya-claude.mjs"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "eval": "node eval/routing-eval.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
