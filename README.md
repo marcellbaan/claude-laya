@@ -97,7 +97,8 @@ model. To tune it for your work, add prompts to `eval/cases.mjs`, run `npm run e
 - **`laya-serve` gets a minimal environment** (`PATH`, `HOME`, `TMPDIR`, locale, `HF_HOME`,
   `LAYA_*`), not your whole shell environment.
 - **Your default model is protected.** If you pick "Laya Router" as your default in `/model`,
-  it is reset on exit so plain `claude` keeps working.
+  it is reset on exit so plain `claude` keeps working. If `laya-claude` was killed before it
+  could clean up, the next start resets it.
 
 ## Configuration
 

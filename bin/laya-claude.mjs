@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LAYA_URL, score } from "../src/score.mjs";
 import { SENTINEL, startProxy } from "../src/proxy.mjs";
+import { clearStaleSentinel, restoreModel } from "../src/settings.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STATE_DIR = join(homedir(), ".laya-claude");
@@ -101,17 +102,8 @@ if (!claude) {
 
 await ensureLaya();
 
-// Picking "Laya Router" with Enter in /model saves it as the default, which would break plain
-// `claude`; put the previous value back on exit.
 const USER_SETTINGS = join(homedir(), ".claude", "settings.json");
-const modelBefore = readJSON(USER_SETTINGS)?.model;
-function restoreModel() {
-  const settings = readJSON(USER_SETTINGS);
-  if (settings?.model !== SENTINEL) return;
-  if (modelBefore === undefined) delete settings.model;
-  else settings.model = modelBefore;
-  writeFileSync(USER_SETTINGS, `${JSON.stringify(settings, null, 2)}\n`);
-}
+const modelBefore = clearStaleSentinel(USER_SETTINGS);
 
 const proxy = await startProxy({ upstream: process.env.ANTHROPIC_BASE_URL, score, onDecision });
 const args = [...process.argv.slice(2), ...statusLineArgs()];
@@ -131,7 +123,7 @@ const child = spawn(claude, args, { stdio: "inherit", env });
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => child.kill(signal));
 child.on("exit", (code, signal) => {
   proxy.close();
-  restoreModel();
+  restoreModel(USER_SETTINGS, modelBefore);
   rmSync(STATUS_FILE, { force: true });
   rmSync(join(STATE_DIR, `settings-${process.pid}.json`), { force: true });
   process.exit(signal ? 1 : (code ?? 0));
