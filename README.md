@@ -134,8 +134,9 @@ always-Opus cache behaviour from the observed token counts.
 - **Headers**, including your Claude credentials, go only to `api.anthropic.com` (or to your
   `ANTHROPIC_BASE_URL`). They are never logged.
 - **Prompt text goes only to the local `laya-serve`** and is never written to disk. The status
-  file and debug log record just the tier, reason, difficulty and timing, in
-  `~/.laya-claude` (mode 700).
+  file, debug log and usage log record just the tier, reason, difficulty, timing and token
+  counts, in `~/.laya-claude` (mode 700). Conversations are identified by a random ID, not by a
+  hash of their content.
 - **`laya-serve` gets a minimal environment** (`PATH`, `HOME`, `TMPDIR`, locale, `HF_HOME`,
   `LAYA_*`), not your whole shell environment.
 - **Your default model is protected.** If you pick "Laya Router" as your default in `/model`,
@@ -167,10 +168,13 @@ npm run eval     # routing accuracy against a running laya-serve (see Evaluating
 
 Code layout:
 
-- `src/proxy.mjs`: the proxy
-- `src/score.mjs`: Laya questions and cut points
+- `src/proxy.mjs`: the proxy and the routing rules
+- `src/score.mjs`: Laya questions, cut points and request building
+- `src/usage.mjs`: reads token usage from responses as they stream past
+- `src/settings.mjs`: keeps your default model in `~/.claude/settings.json` valid
 - `bin/laya-claude.mjs`: the launcher
 - `bin/statusline.mjs`: the status line
+- `eval/`: eval data, the evaluator, the cost report and the dataset tools
 
 Tested on macOS with Claude Code 2.1.284 and Node 26. Claude Code's request format is not a
 public contract, so a future version may need small proxy changes.
